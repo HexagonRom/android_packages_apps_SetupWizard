@@ -30,8 +30,6 @@ import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.telephony.SubscriptionInfo;
-import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.View;
@@ -39,7 +37,6 @@ import android.widget.ArrayAdapter;
 import android.widget.NumberPicker;
 import android.widget.Toast;
 
-import com.android.internal.telephony.MccTable;
 import com.cyanogenmod.setupwizard.R;
 import com.cyanogenmod.setupwizard.SetupWizardApp;
 import com.cyanogenmod.setupwizard.cmstats.SetupStats;
@@ -47,7 +44,6 @@ import com.cyanogenmod.setupwizard.ui.LocalePicker;
 import com.cyanogenmod.setupwizard.ui.SetupPageFragment;
 import com.cyanogenmod.setupwizard.util.SetupWizardUtils;
 
-import java.util.List;
 import java.util.Locale;
 
 public class WelcomePage extends SetupPage {
@@ -171,7 +167,7 @@ public class WelcomePage extends SetupPage {
     }
 
     public void simChanged() {
-        if (mWelcomeFragment != null) {
+        if (mWelcomeFragment != null) {     
             mWelcomeFragment.fetchAndUpdateSimLocale();
         }
     }
@@ -186,8 +182,6 @@ public class WelcomePage extends SetupPage {
         private LocalePicker mLanguagePicker;
         private FetchUpdateSimLocaleTask mFetchUpdateSimLocaleTask;
         private final Handler mHandler = new Handler();
-        private boolean mPendingLocaleUpdate;
-        private boolean mPaused = true;
 
         private final Runnable mUpdateLocale = new Runnable() {
             public void run() {
@@ -281,10 +275,6 @@ public class WelcomePage extends SetupPage {
             if (mIgnoreSimLocale || isDetached()) {
                 return;
             }
-            if (mPaused) {
-                mPendingLocaleUpdate = true;
-                return;
-            }
             if (mFetchUpdateSimLocaleTask != null) {
                 mFetchUpdateSimLocaleTask.cancel(true);
             }
@@ -295,41 +285,16 @@ public class WelcomePage extends SetupPage {
         private class FetchUpdateSimLocaleTask extends AsyncTask<Void, Void, Locale> {
             @Override
             protected Locale doInBackground(Void... params) {
-                Locale locale = null;
                 Activity activity = getActivity();
                 if (activity != null) {
-                    // If the sim is currently pin locked, return
-                    TelephonyManager telephonyManager = (TelephonyManager)
-                            activity.getSystemService(Context.TELEPHONY_SERVICE);
-                    int state = telephonyManager.getSimState();
-                    if(state == TelephonyManager.SIM_STATE_PIN_REQUIRED ||
-                            state == TelephonyManager.SIM_STATE_PUK_REQUIRED) {
-                        return null;
-                    }
-
-                    final SubscriptionManager subscriptionManager =
-                            SubscriptionManager.from(activity);
-                    List<SubscriptionInfo> activeSubs =
-                            subscriptionManager.getActiveSubscriptionInfoList();
-                    if (activeSubs == null || activeSubs.isEmpty()) {
-                        return null;
-                    }
-
-                    // Fetch locale for active sim's MCC
-                    int mcc = activeSubs.get(0).getMcc();
-                    locale = MccTable.getLocaleFromMcc(activity, mcc, null);
-
-                    // If that fails, fall back to preferred languages reported
-                    // by the sim
-                    if (locale == null) {
-                        String localeString = telephonyManager.getLocaleFromDefaultSim();
-                        if (localeString != null) {
-                            locale = Locale.forLanguageTag(localeString);
-
-                        }
+                    TelephonyManager telephonyManager = (TelephonyManager) activity.
+                            getSystemService(Context.TELEPHONY_SERVICE);
+                    String locale = telephonyManager.getLocaleFromDefaultSim();
+                    if (locale != null) {
+                        return Locale.forLanguageTag(locale);
                     }
                 }
-                return locale;
+                return null;
             }
 
             @Override
@@ -340,28 +305,8 @@ public class WelcomePage extends SetupPage {
                                 simLocale.getDisplayName());
                         Toast.makeText(getActivity(), label, Toast.LENGTH_SHORT).show();
                         onLocaleChanged(simLocale);
-                        mIgnoreSimLocale = true;
                     }
                 }
-            }
-        }
-
-        @Override
-        public void onPause() {
-            super.onPause();
-            mPaused = true;
-        }
-
-        @Override
-        public void onResume() {
-            super.onResume();
-            mPaused = false;
-            if (mLanguagePicker != null) {
-                mLanguagePicker.setEnabled(true);
-            }
-            if (mPendingLocaleUpdate) {
-                mPendingLocaleUpdate = false;
-                fetchAndUpdateSimLocale();
             }
         }
     }

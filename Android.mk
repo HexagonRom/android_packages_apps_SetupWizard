@@ -18,6 +18,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     libphonenumber \
     org.cyanogenmod.platform.sdk
 
+
 LOCAL_JAVA_LIBRARIES := telephony-common
 
 # Include res dir from chips
@@ -27,7 +28,5 @@ res_dir := $(google_play_dir) res
 LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(res_dir))
 LOCAL_AAPT_FLAGS := --auto-add-overlay
 LOCAL_AAPT_FLAGS += --extra-packages com.google.android.gms
-
-include frameworks/opt/setupwizard/library/common.mk
 
 include $(BUILD_PACKAGE)
